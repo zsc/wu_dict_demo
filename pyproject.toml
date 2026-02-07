@@ -1,0 +1,25 @@
+[project]
+name = "wu-pinyin"
+version = "0.1.0"
+description = "吴语拼音转换器 - 苏州话拼音转换工具"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Author"}
+]
+keywords = ["wu", "chinese", "pinyin", "suzhou", "dialect"]
+
+[project.scripts]
+wu-pinyin = "wu_pinyin.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wu_pinyin"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"data/words.json" = "wu_pinyin/data/words.json"
+"data/char_base.json" = "wu_pinyin/data/char_base.json"
