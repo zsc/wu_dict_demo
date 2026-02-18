@@ -7,6 +7,7 @@
 - **Greedy 分词 + Fallback**: 优先匹配最长词语，失败则回退到单字
 - **数据驱动**: 基于吴语苏州话词典 MDX 数据生成
 - **多音字支持**: 显示单字的所有备选读音
+- **IPA 输出**: 将吴语拼音按规则转写为 IPA
 - **轻量快速**: 纯 Python 实现，无需额外依赖
 
 ## 安装
@@ -16,7 +17,7 @@
 pip install -e .
 
 # 或者直接使用 PYTHONPATH
-PYTHONPATH=src python -m wu_pinyin "苏州话"
+PYTHONPATH=src python3 -m wu_pinyin "苏州话"
 ```
 
 ## 使用方法
@@ -27,6 +28,10 @@ PYTHONPATH=src python -m wu_pinyin "苏州话"
 # 转换文本
 wu-pinyin "苏州话"
 # 输出: sou1 tseu1 gho6
+
+# 输出 IPA
+wu-pinyin --ipa "苏州话"
+# 输出: səu44 ʦøʏ44 ɦo231
 
 # 显示分词详情
 wu-pinyin -v "苏州话很好"
@@ -44,6 +49,10 @@ wu-pinyin -a "吴"
 # JSON 格式输出
 wu-pinyin --format json "苏州"
 # 输出: [{"text": "苏", "pinyin": "sou1", "is_word": false}, ...]
+
+# JSON + IPA 字段
+wu-pinyin --format json --ipa "吴"
+# 输出: [{"text": "吴", "pinyin": "ng2", "ipa": "ŋ223", ...}, ...]
 ```
 
 ### 文件处理

@@ -10,6 +10,7 @@ from typing import List
 
 from .loader import DataLoader
 from .converter import WuConverter
+from .ipa import wupin_key_to_ipa, wupin_token_to_ipa
 
 
 def print_usage():
@@ -30,38 +31,74 @@ Options:
     -d, --data-dir DIR  数据文件目录 (默认: ./data)
     --format FORMAT     输出格式: text/json (默认: text)
     --separator SEP     拼音分隔符 (默认: 空格)
+    --ipa               输出 IPA（由吴语拼音按规则转写）
+    --tone TONE         IPA 声调输出: none/base/sandhi (默认: sandhi)
 
 Examples:
     wu-pinyin "苏州话"
     wu-pinyin -v "苏州话很好"
     wu-pinyin -a "吴"
+    wu-pinyin --ipa "苏州话"
     wu-pinyin -f input.txt -o output.txt
     echo "苏州" | wu-pinyin
 """)
 
 
-def format_text_output(segments, show_details: bool = False, show_alternatives: bool = False) -> str:
+def _maybe_wupin_key_to_ipa(s: str, tone: str) -> str:
+    if not s:
+        return s
+    if s == "?":
+        return "?"
+    if not any("a" <= ch <= "z" for ch in s):
+        return s
+    return wupin_key_to_ipa(s, tone=tone)
+
+
+def _maybe_wupin_token_to_ipa(s: str, tone: str) -> str:
+    if not s:
+        return s
+    if s == "?":
+        return "?"
+    if not any("a" <= ch <= "z" for ch in s):
+        return s
+    return wupin_token_to_ipa(s, tone=tone)
+
+
+def format_text_output(
+    segments,
+    show_details: bool = False,
+    show_alternatives: bool = False,
+    separator: str = " ",
+    to_ipa: bool = False,
+    ipa_tone: str = "sandhi",
+) -> str:
     """格式化文本输出"""
     lines = []
     
     for seg in segments:
+        display_pinyin = _maybe_wupin_key_to_ipa(seg.pinyin, ipa_tone) if to_ipa else seg.pinyin
+        display_alts = (
+            [_maybe_wupin_token_to_ipa(a, ipa_tone) for a in (seg.alternatives or [])]
+            if to_ipa
+            else (seg.alternatives or [])
+        )
+
         if show_details or show_alternatives:
-            word_type = "(word)" if seg.is_word else "(char)"
-            if seg.alternatives:
-                alt_str = "/".join(seg.alternatives)
-                lines.append(f"{seg.text}: {seg.pinyin} [{alt_str}]")
+            if display_alts:
+                alt_str = "/".join(display_alts)
+                lines.append(f"{seg.text}: {display_pinyin} [{alt_str}]")
             else:
-                lines.append(f"{seg.text}: {seg.pinyin}")
+                lines.append(f"{seg.text}: {display_pinyin}")
         else:
-            lines.append(seg.pinyin)
+            lines.append(display_pinyin)
     
     if show_details or show_alternatives:
         return "\n".join(lines)
     else:
-        return " ".join(lines)
+        return separator.join(lines)
 
 
-def format_json_output(segments) -> str:
+def format_json_output(segments, to_ipa: bool = False, ipa_tone: str = "sandhi") -> str:
     """格式化 JSON 输出"""
     data = []
     for seg in segments:
@@ -72,6 +109,12 @@ def format_json_output(segments) -> str:
         }
         if seg.alternatives:
             item["alternatives"] = seg.alternatives
+        if to_ipa:
+            item["ipa"] = _maybe_wupin_key_to_ipa(seg.pinyin, ipa_tone)
+            if seg.alternatives:
+                item["alternatives_ipa"] = [
+                    _maybe_wupin_token_to_ipa(a, ipa_tone) for a in seg.alternatives
+                ]
         data.append(item)
     
     return json.dumps(data, ensure_ascii=False, indent=2)
@@ -91,6 +134,8 @@ def main(args: List[str] = None):
     alternatives = False
     format_type = "text"
     separator = " "
+    to_ipa = False
+    ipa_tone = "sandhi"
     
     i = 0
     while i < len(args):
@@ -139,6 +184,19 @@ def main(args: List[str] = None):
                 print("Error: --separator requires an argument", file=sys.stderr)
                 return 1
             separator = args[i + 1]
+            i += 1
+
+        elif arg == "--ipa":
+            to_ipa = True
+
+        elif arg == "--tone":
+            if i + 1 >= len(args):
+                print("Error: --tone requires an argument", file=sys.stderr)
+                return 1
+            ipa_tone = args[i + 1]
+            if ipa_tone not in {"none", "base", "sandhi"}:
+                print("Error: --tone must be one of none/base/sandhi", file=sys.stderr)
+                return 1
             i += 1
         
         elif not arg.startswith("-") and text is None:
@@ -192,9 +250,16 @@ def main(args: List[str] = None):
     
     # 格式化输出
     if format_type == "json":
-        output = format_json_output(segments)
+        output = format_json_output(segments, to_ipa=to_ipa, ipa_tone=ipa_tone)
     else:
-        output = format_text_output(segments, verbose, alternatives)
+        output = format_text_output(
+            segments,
+            verbose,
+            alternatives,
+            separator=separator,
+            to_ipa=to_ipa,
+            ipa_tone=ipa_tone,
+        )
     
     # 输出
     if output_path:
